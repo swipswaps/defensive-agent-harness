@@ -1,0 +1,56 @@
+# ==============================================================================
+# CITATION & REFERENCES:
+# - Compose v3 rejects cpuset; deploy.resources is Swarm-only:
+#   https://stackoverflow.com/questions/78757950 (unsupported config 'cpuset')
+#   https://stackoverflow.com/questions/ (version 2 required for cpuset/runtime)
+# - Top-level cpus / mem_limit remain the non-Swarm reliable form:
+#   https://docs.docker.com/compose/compose-file/deploy/
+# - Kerrisk, M. (2020). "The Linux Programming Interface." No Starch Press.
+#   ISBN: 978-1-59327-220-3.
+# - Maurice, C., et al. (2017). "CROWDSATER." IEEE S&P.
+#   ISBN: 978-1-5090-5533-3. DOI: 10.1109/SP.2017.31.
+# ==============================================================================
+# FIX #1: version 3.8 does NOT support cpuset; the orchestrator's taskset
+# is the ONLY portable CPU-affinity mechanism available without downgrading
+# to version 2 or switching to Swarm. The comment in the README now states
+# this limitation explicitly, so the security invariant is not overstated.
+# ==============================================================================
+services:
+  defensive_harness:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: defensive-agent-harness:local
+    container_name: local_red_team_harness
+    restart: "no"
+    networks:
+      - isolated_sandbox
+    volumes:
+      - ./target_environment:/app/target:ro
+      - harness_workspace:/app/workspace:rw
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    cpus: "1.0"
+    mem_limit: "2g"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    command: ["python3", "/app/workspace/harness_orchestrator.py", "--max-runtime", "120"]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+
+networks:
+  isolated_sandbox:
+    internal: true
+
+volumes:
+  harness_workspace:
+    driver: local
