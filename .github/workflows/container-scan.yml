@@ -2,6 +2,8 @@
 # CITATION & REFERENCES:
 # - Trivy GitHub Actions:
 #   https://github.com/aquasecurity/trivy-action
+# - actions/checkout pinned by commit SHA:
+#   https://github.com/actions/checkout
 # - Blocking HIGH/CRITICAL is a supply-chain control recommended by
 #   cloud-security guidance for AI-agent-built images.
 # ==============================================================================
@@ -10,19 +12,24 @@
 # interpret the exit code the same way a shell does.
 # ==============================================================================
 name: container-scan
+
 on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
 jobs:
   trivy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Build image
         run: docker build -t defensive-agent-harness:ci .
       - name: Trivy scan (block HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: defensive-agent-harness:ci
           format: table

@@ -1,0 +1,15 @@
+# Keep build context minimal and keep target data out of the daemon.
+.git
+.github
+__pycache__
+*.pyc
+snapshots
+target_environment
+test_*.py
+scripts
+*.log
+*.anchor
+*.lock
+.fix_prehashes
+.fix_timestamp
+README.txt

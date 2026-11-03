@@ -3,3 +3,9 @@ target_environment/*
 !target_environment/.gitkeep
 __pycache__/
 *.pyc
+snapshots/
+*.anchor
+*.lock
+.fix_prehashes
+.fix_timestamp
+.pytest_cache/

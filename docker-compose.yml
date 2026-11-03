@@ -4,19 +4,22 @@
 #   image's COPY'd files at that path. Only an EMPTY volume is populated
 #   from the image on first use; existing volumes are not re-populated.
 #   https://docs.docker.com/storage/volumes/#populate-a-volume-using-a-container
-#   This is the root cause of the six failed --audit-event runs: the volume
-#   created at 11:11 contained the pre-audit 2-option orchestrator and
-#   shadowed every subsequent image build.
-# - read_only: true + writable paths must be explicit volumes or tmpfs.
+#   Code lives at /app/workspace (image), logs at /app/logs (volume).
+# - read_only: true plus explicit writable paths:
 #   https://docs.docker.com/reference/cli/docker/container/run/#read-only
-# - AUDIT_LOG_PATH env: audit_logger.py reads it via os.environ.get.
-#   https://docs.python.org/3/library/os.html#os.environ
-# - ENTRYPOINT/CMD: command: overrides CMD; result is ENTRYPOINT + command.
-#   https://docs.docker.com/engine/reference/builder/#cmd
-# - Compose deploy is Swarm-oriented; top-level cpus/mem_limit for non-Swarm.
+# - Compose service limits (cpus, mem_limit, pids_limit, ulimits) are the
+#   non-Swarm controls; deploy.resources is Swarm-oriented:
 #   https://docs.docker.com/compose/compose-file/deploy/
+# - Docker shares the host kernel; this is isolation, not virtualisation:
+#   https://docs.docker.com/engine/security/
 # - Kerrisk (2020), ISBN 978-1-59327-220-3.
 # - Maurice et al. (2017), ISBN 978-1-5090-5533-3, DOI 10.1109/SP.2017.31.
+# ==============================================================================
+# HONEST LIMITS:
+#   cap_drop, no-new-privileges, read-only rootfs, pids_limit and a private
+#   bridge reduce ordinary container risk. They do NOT stop kernel exploits,
+#   shared-cache side channels, or a hostile host. taskset pins the probe
+#   process only; the container itself is not CPU-isolated.
 # ==============================================================================
 name: defensive-agent-harness
 
@@ -28,6 +31,8 @@ services:
     image: defensive-agent-harness:local
     container_name: local_red_team_harness
     restart: "no"
+    init: true
+    stop_grace_period: 10s
     networks:
       - isolated_sandbox
     volumes:
@@ -39,10 +44,16 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
+      - HARNESS_TARGET=/app/target
       # audit_logger.py writes here (created by Dockerfile).
       - AUDIT_LOG_PATH=/app/logs/audit_trail.log
     cpus: "1.0"
     mem_limit: "2g"
+    pids_limit: 256
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 2048
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -52,7 +63,8 @@ services:
       - /tmp:rw,noexec,nosuid,nodev,size=64m
     command: ["--max-runtime", "120"]
     healthcheck:
-      test: ["CMD", "python3", "-c", "import sys; sys.exit(0)"]
+      # Verifies the audit chain, not merely that Python starts.
+      test: ["CMD", "python3", "/app/workspace/harness_orchestrator.py", "--audit-verify"]
       interval: 30s
       timeout: 5s
       retries: 2

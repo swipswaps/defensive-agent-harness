@@ -1,4 +1,4 @@
 # SHA256SUMS -- generated from active workspace files.
 # Only files that Dockerfile COPYs into /app/workspace are listed.
-c3fee74ea5b3b4ff2d3852bc95694ffab3088042372056930300db9e4e35fc98  harness_orchestrator.py
-9c0f4dfce54df2dadc919c1988a76c8886fb1fc06fea8446a90af5cf1d37aecc  audit_logger.py
+ca9b7c80ccc2b90dc3630f999d519b4692cf4292ea8493daf0c0fe0dacc763af  harness_orchestrator.py
+3a91dd8abf7e5f23adcdfc2c89ceba3d0f53ce7b536789f83a5324859256d3a3  audit_logger.py

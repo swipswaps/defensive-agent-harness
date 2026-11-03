@@ -1,0 +1,57 @@
+# ==============================================================================
+# CITATION & REFERENCES:
+# - actions/checkout v4 pinned by commit SHA:
+#   https://github.com/actions/checkout
+# - actions/setup-python v5 pinned by commit SHA:
+#   https://github.com/actions/setup-python
+# - Docker Compose config validation:
+#   https://docs.docker.com/reference/cli/docker/compose/config/
+# - Python unittest discovery:
+#   https://docs.python.org/3/library/unittest.html#test-discovery
+# ==============================================================================
+# Pinning by commit SHA prevents a mutable tag from changing the code that
+# runs in CI. Keep the trailing comment for human auditability.
+# ==============================================================================
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Compile
+        run: |
+          python3 -m compileall -q harness_orchestrator.py audit_logger.py \
+            snapshot_manager.py zfs_snapshot_manager.py test_audit_chain.py \
+            test_orchestrator_guards.py test_snapshot_safety.py \
+            test_audit_anchor.py test_orchestrator_integration.py
+      - name: Unit tests
+        run: |
+          python3 test_audit_chain.py
+          python3 -m unittest discover -v
+      - name: Manifest
+        run: bash scripts/manifest.sh --check
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Compose config
+        run: docker compose config
+      - name: Build image
+        run: docker build -t defensive-agent-harness:ci .
+      - name: Smoke test
+        run: |
+          docker run --rm --entrypoint python3 defensive-agent-harness:ci \
+            -c "import audit_logger; print('import ok')"
+          docker run --rm defensive-agent-harness:ci --help | grep -q -- '--audit-verify'
