@@ -1,4 +1,3 @@
-# SHA256SUMS -- generated at bootstrap time from actual files.
-# Format: <sha256-hex>  <relative-path-under-/app/workspace>
+# SHA256SUMS -- generated from active workspace files.
 4becd6246b11200fc3fae2efb0f8cfe1f89cdfe5749aa4b9c30e370f543b31fc  harness_orchestrator.py
 4bc892f5374f67b8a9464e7870a0b4039d634a079efed5fdf8136464c78fb3c6  audit_logger.py
