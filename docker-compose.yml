@@ -1,13 +1,19 @@
 # ==============================================================================
 # CITATION & REFERENCES:
-# - ENTRYPOINT/CMD: command: overrides CMD and is passed as arguments to
-#   ENTRYPOINT; duplicating interpreter+script causes argparse to reject the
-#   extra positional arguments. Confirmed by execution: exit code 2.
+# - Named-volume shadowing: mounting a volume at /app/workspace hides the
+#   image's COPY'd files at that path. Only an EMPTY volume is populated
+#   from the image on first use; existing volumes are not re-populated.
+#   https://docs.docker.com/storage/volumes/#populate-a-volume-using-a-container
+#   This is the root cause of the six failed --audit-event runs: the volume
+#   created at 11:11 contained the pre-audit 2-option orchestrator and
+#   shadowed every subsequent image build.
+# - read_only: true + writable paths must be explicit volumes or tmpfs.
+#   https://docs.docker.com/reference/cli/docker/container/run/#read-only
+# - AUDIT_LOG_PATH env: audit_logger.py reads it via os.environ.get.
+#   https://docs.python.org/3/library/os.html#os.environ
+# - ENTRYPOINT/CMD: command: overrides CMD; result is ENTRYPOINT + command.
 #   https://docs.docker.com/engine/reference/builder/#cmd
-# - Top-level project name avoids orphan-container collisions with unrelated
-#   projects whose directory is also "repo".
-#   https://docs.docker.com/compose/compose-file/05-services/#name
-# - deploy is Swarm-oriented; cpus / mem_limit are the non-Swarm reliable form.
+# - Compose deploy is Swarm-oriented; top-level cpus/mem_limit for non-Swarm.
 #   https://docs.docker.com/compose/compose-file/deploy/
 # - Kerrisk (2020), ISBN 978-1-59327-220-3.
 # - Maurice et al. (2017), ISBN 978-1-5090-5533-3, DOI 10.1109/SP.2017.31.
@@ -25,11 +31,16 @@ services:
     networks:
       - isolated_sandbox
     volumes:
+      # Target: read-only bind mount (host -> container, single direction).
       - ./target_environment:/app/target:ro
-      - harness_workspace:/app/workspace:rw
+      # Logs: writable named volume. NOT at /app/workspace — that path is
+      # code from the image and must not be shadowed.
+      - harness_logs:/app/logs:rw
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
+      # audit_logger.py writes here (created by Dockerfile).
+      - AUDIT_LOG_PATH=/app/logs/audit_trail.log
     cpus: "1.0"
     mem_limit: "2g"
     security_opt:
@@ -39,8 +50,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=64m
-    # FIX (F1): ENTRYPOINT supplies python3 + script; command supplies ONLY
-    # the trailing arguments. No duplication.
     command: ["--max-runtime", "120"]
     healthcheck:
       test: ["CMD", "python3", "-c", "import sys; sys.exit(0)"]
@@ -53,5 +62,5 @@ networks:
     internal: true
 
 volumes:
-  harness_workspace:
+  harness_logs:
     driver: local

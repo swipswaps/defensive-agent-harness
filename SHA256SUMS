@@ -1,6 +1,4 @@
 # SHA256SUMS -- generated from active workspace files.
 # Only files that Dockerfile COPYs into /app/workspace are listed.
-# Host-only tools (snapshot_manager.py) are excluded so the runtime
-# manifest stays truthful about the container's file set.
-4becd6246b11200fc3fae2efb0f8cfe1f89cdfe5749aa4b9c30e370f543b31fc  harness_orchestrator.py
-4bc892f5374f67b8a9464e7870a0b4039d634a079efed5fdf8136464c78fb3c6  audit_logger.py
+c3fee74ea5b3b4ff2d3852bc95694ffab3088042372056930300db9e4e35fc98  harness_orchestrator.py
+9c0f4dfce54df2dadc919c1988a76c8886fb1fc06fea8446a90af5cf1d37aecc  audit_logger.py

@@ -9,24 +9,21 @@
 # - Python datetime timezone-aware guidance:
 #   https://docs.python.org/3/library/datetime.html#datetime.datetime.now
 # ==============================================================================
-# DESIGN NOTES (verbose):
-#   append_event() reads the LAST entry's entry_hash and uses it as
-#   prev_hash for the new entry. verify_chain() replays this construction.
-#   If an attacker deletes a middle entry, the prev_hash of the following
-#   entry no longer matches the replayed hash, and verification fails at
-#   that line. If an attacker re-hashes the tail after deletion, the
-#   recomputed entry_hash differs from the claimed value at the line
-#   before the deletion, because that line's prev_hash is still correct
-#   but its payload is now the attacker's modified tail—the chain breaks.
+# DESIGN:
+#   entry_hash = SHA256(prev_hash || canonical_json(payload))
+#   GENESIS = 64 zeroes. verify_chain() replays the chain and returns the
+#   first line number at which the recomputation diverges from the claimed
+#   hash — i.e. it detects a modified, deleted, or reordered middle entry.
 # ==============================================================================
 
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-LOG_FILE = Path("/app/workspace/audit_trail.log")
+LOG_FILE = Path(os.environ.get("AUDIT_LOG_PATH", "/app/workspace/audit_trail.log"))
 GENESIS = "0" * 64
 
 
@@ -37,7 +34,7 @@ def canonical(obj: dict) -> bytes:
 
 
 def append_event(event_type: str, details: dict) -> dict:
-    """Append one hash-chained entry; return the entry for inspection."""
+    """Append one hash-chained entry to LOG_FILE; return the entry."""
     prev_hash = GENESIS
     if LOG_FILE.is_file():
         lines = [ln for ln in LOG_FILE.read_text(encoding="utf-8").splitlines() if ln.strip()]
@@ -53,6 +50,7 @@ def append_event(event_type: str, details: dict) -> dict:
     entry_hash = hashlib.sha256(prev_hash.encode("ascii") + canonical(payload)).hexdigest()
     entry = {**payload, "entry_hash": entry_hash}
 
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with LOG_FILE.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry, sort_keys=True, ensure_ascii=False) + "\n")
     return entry
@@ -60,9 +58,8 @@ def append_event(event_type: str, details: dict) -> dict:
 
 def verify_chain() -> int:
     """
-    Replay the chain and report the FIRST break.
-    Exit 0 = intact; exit 2 = broken (configuration/evidence failure).
-    Never exits 1 (per constraint).
+    Replay the chain and report the first break.
+    Exit 0 = intact; 2 = broken.
     """
     if not LOG_FILE.is_file():
         print("[WARN] No audit log yet; nothing to verify.")
